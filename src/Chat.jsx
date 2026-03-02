@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { fmt } from './useLivePrice'
 
+const ANTHROPIC_KEY = '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'
+
 const Msg = ({ m }) => (
   <div style={{
     display: 'flex', gap: 10, marginBottom: 14,
@@ -59,19 +61,20 @@ export default function Chat({ priceData, settings }) {
     setThinking(true)
 
     const sys = `You are TEX, a precision AI trading assistant for XAUUSD (Gold/USD). You specialize in 1H, 15m and 5m timeframe analysis.
-
-Live data:
-Price: $${fmt(price)} (${up ? '+' : ''}${changeP}% today)
-Day High: $${fmt(high)} | Day Low: $${fmt(low)}
+Live data: Price $${fmt(price)} (${up ? '+' : ''}${changeP}% today) | High $${fmt(high)} | Low $${fmt(low)}
 Signal: BUY | Confidence: 78% | Pattern: Bull Flag | RSI: 41.2
-Entry: $${fmt(entry)} | SL: $${fmt(sl)} | TP1: $${fmt(tp1)} | TP2: $${fmt(tp2)} | R/R: 1:${rr}
-
-Be direct, precise and concise. Use real price levels. No fluff. Mobile-friendly responses — keep them tight.`
+Entry $${fmt(entry)} | SL $${fmt(sl)} | TP1 $${fmt(tp1)} | TP2 $${fmt(tp2)} | R/R 1:${rr}
+Be direct and concise. Use real price levels. No fluff.`
 
     try {
       const res  = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 800,
@@ -87,91 +90,59 @@ Be direct, precise and concise. Use real price levels. No fluff. Mobile-friendly
       const data  = await res.json()
       const reply = data.content?.map(b => b.text || '').join('') || 'Unable to respond.'
       setMessages(m => [...m, { role: 'ai', content: reply }])
-    } catch {
-      setMessages(m => [...m, { role: 'ai', content: 'Connection error. Check your internet connection.' }])
+    } catch (e) {
+      setMessages(m => [...m, { role: 'ai', content: 'Connection error: ' + e.message }])
     }
     setThinking(false)
   }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-      {/* Header */}
-      <div style={{
-        padding: '12px 20px', borderBottom: '1px solid #131313',
-        display: 'flex', alignItems: 'center', gap: 8
-      }}>
+      <div style={{ padding: '12px 20px', borderBottom: '1px solid #131313', display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#383838', animation: 'pulse 2s infinite' }} />
         <span style={{ fontSize: 9, color: '#353535', letterSpacing: 3 }}>TEX AI  ·  XAUUSD</span>
-        {price && (
-          <span style={{ marginLeft: 'auto', fontSize: 11, color: '#3a3a3a', fontFamily: 'monospace' }}>
-            ${fmt(price)}
-          </span>
-        )}
+        {price && <span style={{ marginLeft: 'auto', fontSize: 11, color: '#3a3a3a', fontFamily: 'monospace' }}>${fmt(price)}</span>}
       </div>
 
-      {/* Messages */}
       <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 8px' }}>
         {messages.map((m, i) => <Msg key={i} m={m} />)}
         {thinking && (
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: '50%',
-              background: '#141414', border: '1px solid #202020',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13
-            }}>◈</div>
-            <div style={{
-              padding: '12px 16px', borderRadius: '3px 14px 14px 14px',
-              background: '#0f0f0f', border: '1px solid #1a1a1a',
-              display: 'flex', alignItems: 'center', gap: 5
-            }}>
-              {[0, 1, 2].map(i => (
-                <div key={i} style={{
-                  width: 5, height: 5, borderRadius: '50%', background: '#383838',
-                  animation: `pulse 1s ease ${i * 0.2}s infinite`
-                }} />
-              ))}
+            <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#141414', border: '1px solid #202020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>◈</div>
+            <div style={{ padding: '12px 16px', borderRadius: '3px 14px 14px 14px', background: '#0f0f0f', border: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', gap: 5 }}>
+              {[0, 1, 2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: '#383838', animation: `pulse 1s ease ${i * 0.2}s infinite` }} />)}
             </div>
           </div>
         )}
       </div>
 
-      {/* Quick chips */}
       <div style={{ padding: '6px 16px 8px', display: 'flex', gap: 6, overflowX: 'auto', flexShrink: 0 }}>
         {CHIPS.map(q => (
           <button key={q} onClick={() => send(q)} style={{
-            padding: '6px 12px', background: '#0f0f0f',
-            border: '1px solid #1c1c1c', borderRadius: 20, whiteSpace: 'nowrap',
-            fontSize: 11, color: '#404040', fontFamily: 'inherit', cursor: 'pointer'
+            padding: '6px 12px', background: '#0f0f0f', border: '1px solid #1c1c1c',
+            borderRadius: 20, whiteSpace: 'nowrap', fontSize: 11, color: '#404040',
+            fontFamily: 'inherit', cursor: 'pointer'
           }}>{q}</button>
         ))}
       </div>
 
-      {/* Input */}
       <div style={{ padding: '0 16px 16px', flexShrink: 0 }}>
-        <div style={{
-          display: 'flex', gap: 8, padding: '10px 14px',
-          background: '#0d0d0d', border: '1px solid #1c1c1c', borderRadius: 12
-        }}>
+        <div style={{ display: 'flex', gap: 8, padding: '10px 14px', background: '#0d0d0d', border: '1px solid #1c1c1c', borderRadius: 12 }}>
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && send()}
             placeholder="Ask TEX about XAUUSD..."
-            style={{
-              flex: 1, background: 'none', border: 'none',
-              fontFamily: 'inherit', fontSize: 13, color: '#777',
-              outline: 'none'
-            }}
+            style={{ flex: 1, background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 13, color: '#777', outline: 'none' }}
           />
           <button onClick={() => send()} disabled={thinking} style={{
-            padding: '6px 16px', background: '#141414',
-            border: '1px solid #222', borderRadius: 8,
-            color: '#4a4a4a', fontFamily: 'inherit', fontSize: 11,
+            padding: '6px 16px', background: '#141414', border: '1px solid #222',
+            borderRadius: 8, color: '#4a4a4a', fontFamily: 'inherit', fontSize: 11,
             cursor: thinking ? 'not-allowed' : 'pointer', letterSpacing: 1
           }}>SEND</button>
         </div>
       </div>
     </div>
   )
-}
+        }
+                      
